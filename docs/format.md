@@ -2,7 +2,7 @@ It's been about a year and a half since I wrote this, and I unfortunately didn't
 
 The image texture used by the scroll calendar display shader contains a mix of graphical elements, control metadata, and rendered text. We'll address each part in turn. You may find it helpful to look at a [sample rendered image](sample_rendered.png) as you follow along.
 
-== Overall structure and elements of the scroll calendar ==
+# Overall structure and elements of the scroll calendar
 
 The scroll calendar prefab assembles the following parts together: 
 
@@ -10,7 +10,7 @@ The scroll calendar prefab assembles the following parts together:
 * Next, the date section header hackgrounds
 * Finally, the calendar text. Calendar text is a monochrome image, divided into three parts, then overlapped on top of each other using the R/G/B color channels. Information encoded into the metadata section controls which color is used to display this data.
 
-== Metadata ==
+## Metadata
 
 Metadata is encoded into a rectangular section in the upper-right corner of the image, encoded from right to left and top to bottom.. Each pixel encodes up to 26 bits of data; this unusual choice is due to the loss of precision incurred when vrchat interprets the pixel values as sRGB and converts to gamma colorspace (see [../src/datastream.rs](datastream.rs), in `ByteColor::from_value`). The components are documented in datastream.rs, and consist of:
 
@@ -39,10 +39,10 @@ Metadata is encoded into a rectangular section in the upper-right corner of the 
 * Width the day header should be expanded to
 * The remainder consists of row data for the scrolling section (see below)
 
-== Day header encoding ==
+## Day header encoding
 
 The header that is rendered to show the datestamp of each section is encoded as a sliced sprite. That is, we include just the left and right sides, and repeat pixels for the middle. Additionally, we split out the color and alpha data; this is mostly due to issues with how the generator script uses cairo, which uses premultiplied alpha. This caused some artifacting, so I chose to split out the alpha data. The generator script places these templates in the upper right, just to the left of the metadata section.
 
-== Row data ==
+## Row data
 
 We encode two arrays of data corresponding to horizontal rows of pixels in the text section. The first array encodes the Y-offset within the text section of the _prior_ day header. This is used to determine whether we are overlapping two day headers while scrolling. The second encodes either the palette indexes to use for the columns of text pixels, or if this column is part of a day header, includes a flag indicating this and the offset of the start of the header.

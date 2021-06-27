@@ -6,7 +6,7 @@ While I kept meaning to clean this up and get it to a state where it was a bit m
 
 I've written some quick docs on the format in [docs/format.md](docs/format.md).
 
-== Usage ==
+# Usage
 
 ```
 cargo build --release
@@ -28,7 +28,7 @@ header.png contains a transparent sample of the date header that is used to divi
 
 The calendar URL is currently hardcoded in src/calendar.rs to point to Kakkou's VRChat Event Calendar, via the google calendar ICS export.
 
-== Misc scripts ==
+## Misc scripts
 
 I've also included some of the scripts I've been using to maintain the backend.
 
