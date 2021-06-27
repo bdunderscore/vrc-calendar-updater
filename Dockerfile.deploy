@@ -1,0 +1,24 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt -y update && \
+  apt -y upgrade && \
+  apt -y install libcairo2 libpango1.0-0 libpangocairo-1.0-0 awscli libssl1.1 && \
+  apt clean
+
+RUN apt -y update && \
+  apt -y install libcairo-gobject2 curl && \
+  apt clean
+
+RUN mkdir /calendar-updater
+
+ADD fonts/* /root/.fonts/
+
+ADD generate.sh upload.sh header.png template.png calendar-updater /calendar-updater/
+
+RUN for i in /calendar-updater/*.sh; do mv $i $i.tmp; tr -d '\r' < $i.tmp > $i; rm $i.tmp; done
+
+RUN chmod a+x /calendar-updater/*
+
+ENTRYPOINT /calendar-updater/upload.sh

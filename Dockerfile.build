@@ -1,0 +1,23 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt -y update && \
+  apt -y upgrade && \
+  apt -y install libcairo2 libpango1.0-0 libpangocairo-1.0-0 awscli libssl1.1 && \
+  apt clean
+
+RUN apt -y update && \
+  apt -y upgrade && \
+  apt -y install libcairo2-dev libpango1.0-dev libpangocairo-1.0-0 build-essential curl && \
+  curl https://sh.rustup.rs -sSf | sh -s -- -y && \
+  apt clean
+
+RUN apt -y update && apt -y install libssl-dev pkg-config && apt clean
+
+RUN mkdir /calendar-updater-src
+
+ADD Cargo.toml Cargo.lock /calendar-updater-src/
+ADD src /calendar-updater-src/src
+
+RUN cd /calendar-updater-src && ls && . $HOME/.cargo/env && cargo build --release

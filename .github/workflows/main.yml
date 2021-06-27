@@ -1,0 +1,116 @@
+# This is a basic workflow to help you get started with Actions
+
+name: Generate calendar
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on:
+  push:
+    branches: [ master ]
+env:
+  CARGO_TERM_COLOR: always
+  TZ: Japan
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - uses: ypicard/get-branch-name-github-action@v1
+      id: branch-name
+    - name: Checkout
+      uses: actions/checkout@v2.2.0
+    # Runs a single command using the runners shell
+    - name: Install system-wide dependencies
+      run: sudo apt-get -y install libcairo2-dev libpango1.0-dev libpangocairo-1.0-0 awscli
+
+#    - name: Cache fonts
+#      id: cache-fonts
+#      uses: actions/cache@v2.0.0
+#      with:
+#        # A list of files, directories, and wildcard patterns to cache and restore
+#        path: system-fonts
+#        # An explicit key for restoring and saving the cache
+#        key: system-fonts-${{ steps.branch-name.outputs.branch }}
+#
+#    - name: Install fonts
+#      if: ${{ success() && steps.cache-fonts.outputs.cache-hit != 'true' }}
+#      run: |
+#        sudo apt-get -y install fonts-freefont-ttf fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk fonts-noto-cjk-extra fonts-ubuntu
+#        mkdir -p system-fonts
+#        cp -R /usr/share/fonts/* system-fonts/
+#
+    - name: Copy fonts to local user home
+      run: |
+        #cp -R system-fonts $HOME/.fonts
+        mkdir -p $HOME/.fonts
+        cp fonts/* $HOME/.fonts
+        fc-list
+
+    - name: Cache rust binary
+      id: cache-app
+      uses: actions/cache@v2.0.0
+      with:
+        path: target/release/calendar-updater
+        key: app-binary-${{ github.ref }}-${{ github.sha }}
+
+    - name: Cache rust artifacts
+      id: cache-artifacts
+      if: ${{ success() && steps.cache-app.outputs.cache-hit != 'true' }}
+      uses: actions/cache@v2.0.0
+      with:
+        # A list of files, directories, and wildcard patterns to cache and restore
+        path: |
+          target/release
+          /home/runner/.cargo/registry
+        # An explicit key for restoring and saving the cache
+        key: app-binary-${{ github.ref }}
+
+    - name: rust-toolchain
+      if: ${{ success() && steps.cache-app.outputs.cache-hit != 'true' }}
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        toolchain: stable
+    - name: Build
+      if: ${{ success() && steps.cache-app.outputs.cache-hit != 'true' }}
+      run: cargo build --verbose --release
+    - name: Run tests
+      if: ${{ success() && steps.cache-app.outputs.cache-hit != 'true' }}
+      run: cargo test --verbose --release
+
+    - name: Generate calendar
+      run: ./generate.sh release -o calendar-${{ steps.branch-name.outputs.branch }}.png -b ${{ steps.branch-name.outputs.branch }}
+
+    - name: Upload to s3
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: ap-northeast-1
+      run: |
+        aws s3 cp --acl public-read calendar-${{ steps.branch-name.outputs.branch }}.png s3://vrc-calendar.fushizen.net/calendar-${{ steps.branch-name.outputs.branch }}.png
+
+    - name: Purge cache
+      uses: jakejarvis/cloudflare-purge-action@master
+      env:
+        # Zone is required by both authentication methods
+        CLOUDFLARE_ZONE: ${{ secrets.CLOUDFLARE_ZONE }}
+        CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
+
+    - name: Discord success notification
+      uses: appleboy/discord-action@master
+      with:
+        webhook_id: ${{ secrets.DISCORD_SUCCESS_WH_ID }}
+        webhook_token: ${{ secrets.DISCORD_SUCCESS_WH_SECRET }}
+        message: 'Generated calendar for branch ${{ steps.branch-name.outputs.branch }}'
+        file: calendar-${{ steps.branch-name.outputs.branch }}.png
+
+    - name: Discord notification on error
+      if: ${{ failure() }}
+      uses: appleboy/discord-action@master
+      with:
+        webhook_id: ${{ secrets.DISCORD_FAILURE_WH_ID }}
+        webhook_token: ${{ secrets.DISCORD_FAILURE_WH_SECRET }}
+        message: 'Failed to generate calendar for branch ${{ steps.branch-name.outputs.branch }}'
